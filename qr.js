@@ -1,7 +1,9 @@
-let html5QrCode = null;
-let currentCameraId = null;
+// QR Code unique et permanent
+let qrScanner = null;
+let isScanning = false;
 
-function generateQRCode() {
+// Générer le QR code unique au chargement
+function generateUniqueQRCode() {
     try {
         const canvas = document.getElementById('qrCodeCanvas');
         if (!canvas) {
@@ -12,167 +14,176 @@ function generateQRCode() {
         const context = canvas.getContext('2d');
         context.clearRect(0, 0, canvas.width, canvas.height);
 
+        // QR code permanent avec identifiant unique
         const qrData = JSON.stringify({
             type: 'pointage',
             app: 'ProDigital',
-            timestamp: Date.now(),
-            version: '2.0'
+            company: 'VotreEntreprise',
+            action: 'employe_pointage',
+            permanent: true,
+            id: 'prodigital-permanent-qr-2024'
         });
 
         QRCode.toCanvas(canvas, qrData, {
-            width: 256,
+            width: 300,
             margin: 2,
             colorDark: '#2c3e50',
-            colorLight: '#ffffff'
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
         }, function(error) {
             if (error) {
                 console.error('Erreur génération QR:', error);
+                showQRCodeError();
                 return;
             }
-            console.log('✅ QR code généré');
+            console.log('✅ QR code permanent généré');
         });
 
     } catch (error) {
         console.error('Erreur génération QR:', error);
+        showQRCodeError();
     }
 }
 
-function downloadQRCode() {
-    try {
-        const canvas = document.getElementById('qrCodeCanvas');
-        if (!canvas) {
-            alert('❌ Veuillez d\'abord générer un QR code');
-            return;
-        }
-
-        const link = document.createElement('a');
-        const date = new Date().toISOString().split('T')[0];
-        link.download = `qr-code-prodigital-${date}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-
-        alert('✅ QR code téléchargé avec succès');
-        
-    } catch (error) {
-        console.error('Erreur téléchargement QR:', error);
-        alert('❌ Erreur lors du téléchargement');
+function showQRCodeError() {
+    const container = document.querySelector('.qr-management');
+    if (container) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'qr-error';
+        errorDiv.innerHTML = `
+            <div class="error-message">
+                <h3>❌ Erreur QR Code</h3>
+                <p>Le QR code n'a pas pu être généré.</p>
+                <button onclick="generateUniqueQRCode()" class="btn-primary">🔄 Réessayer</button>
+            </div>
+        `;
+        container.appendChild(errorDiv);
     }
 }
 
-// Scanner QR Code Universel - Fonctionne sur tous les navigateurs
+// Scanner QR Code
 async function initializeQRScannerForEmploye() {
-    const qrReader = document.getElementById('qrReader');
+    const statusDiv = document.getElementById('qrScanStatus');
     
-    if (!qrReader) {
-        console.error('Élément QR Reader non trouvé');
+    if (!statusDiv) {
+        console.error('Élément status non trouvé');
         return;
     }
-    
+
+    statusDiv.innerHTML = `
+        <div class="scan-loading">
+            <div class="loading-spinner"></div>
+            <p>🔄 Initialisation du scanner...</p>
+        </div>
+    `;
+
     try {
-        // Utiliser html5-qrcode pour une compatibilité maximale
-        html5QrCode = new Html5Qrcode("qrReader");
+        if (typeof Html5Qrcode === 'undefined') {
+            throw new Error('Librairie QR scanner non chargée');
+        }
+
+        qrScanner = new Html5Qrcode("qrReader");
         
         const cameras = await Html5Qrcode.getCameras();
-        if (cameras && cameras.length > 0) {
-            currentCameraId = cameras[0].id;
-            
-            await html5QrCode.start(
-                currentCameraId,
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0
-                },
-                onQRCodeScanned,
-                () => console.log('✅ Scanner QR démarré')
-            ).catch(err => {
-                console.error('Erreur démarrage scanner:', err);
-                fallbackQRScanner();
-            });
-            
-        } else {
-            fallbackQRScanner();
+        
+        if (cameras.length === 0) {
+            throw new Error('Aucune caméra disponible');
         }
-        
-    } catch (error) {
-        console.error('Erreur initialisation scanner:', error);
-        fallbackQRScanner();
-    }
-}
 
-function onQRCodeScanned(decodedText, decodedResult) {
-    console.log('✅ QR Code scanné:', decodedText);
-    
-    try {
-        const data = JSON.parse(decodedText);
-        
-        if (data.type === 'pointage' && data.app === 'ProDigital') {
-            // Arrêter le scanner
-            stopQRScanner();
-            
-            // Rediriger vers la sélection d'employé
-            showSection('selectEmployeSection');
-            loadEmployesForSelection();
-            
-        } else {
-            alert('❌ QR code non valide pour le pointage');
-        }
-    } catch (error) {
-        alert('❌ QR code invalide');
-    }
-}
+        const cameraId = cameras.find(cam => cam.label.toLowerCase().includes('back'))?.id || cameras[0].id;
 
-function fallbackQRScanner() {
-    alert('📱 Scanner non disponible. Utilisez la sélection manuelle.');
-    showSection('selectEmployeSection');
-    loadEmployesForSelection();
-}
+        statusDiv.innerHTML = `
+            <div class="scan-active">
+                <div class="scan-animation"></div>
+                <p>🔍 Scanner actif</p>
+                <p class="scan-tip">Pointez la caméra vers le QR code</p>
+            </div>
+        `;
 
-async function switchCamera() {
-    if (!html5QrCode) return;
-    
-    try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (cameras.length < 2) {
-            alert('ℹ️ Une seule caméra disponible');
-            return;
-        }
-        
-        // Trouver l'index de la caméra actuelle
-        const currentIndex = cameras.findIndex(cam => cam.id === currentCameraId);
-        const nextIndex = (currentIndex + 1) % cameras.length;
-        const nextCameraId = cameras[nextIndex].id;
-        
-        // Arrêter la caméra actuelle
-        await html5QrCode.stop();
-        
-        // Démarrer la nouvelle caméra
-        currentCameraId = nextCameraId;
-        await html5QrCode.start(
-            currentCameraId,
+        await qrScanner.start(
+            cameraId,
             {
                 fps: 10,
                 qrbox: { width: 250, height: 250 },
                 aspectRatio: 1.0
             },
             onQRCodeScanned,
-            () => console.log('✅ Caméra changée')
+            () => console.log('✅ Scanner QR démarré')
         );
-        
+
+        isScanning = true;
+
     } catch (error) {
-        console.error('Erreur changement caméra:', error);
+        console.error('❌ Erreur scanner:', error);
+        handleScannerError(error, statusDiv);
     }
 }
 
+function onQRCodeScanned(decodedText, decodedResult) {
+    console.log('✅ QR Code détecté:', decodedText);
+    
+    try {
+        const data = JSON.parse(decodedText);
+        
+        // Accepter tous les QR codes ProDigital
+        if (data.app === 'ProDigital' && data.type === 'pointage') {
+            handleValidQRCode();
+        } else {
+            showNotification('❌ QR code non reconnu', 'error');
+        }
+    } catch (error) {
+        console.error('QR code invalide:', error);
+        showNotification('❌ QR code invalide', 'error');
+    }
+}
+
+function handleValidQRCode() {
+    if (!isScanning) return;
+    
+    stopQRScanner();
+    
+    const statusDiv = document.getElementById('qrScanStatus');
+    if (statusDiv) {
+        statusDiv.innerHTML = `
+            <div class="scan-success">
+                <div class="success-icon">✅</div>
+                <h3>QR Code Validé !</h3>
+                <p>Redirection vers le pointage...</p>
+            </div>
+        `;
+    }
+    
+    setTimeout(() => {
+        showSection('selectEmployeSection');
+        loadEmployesForSelection();
+    }, 1500);
+}
+
+function handleScannerError(error, statusDiv) {
+    statusDiv.innerHTML = `
+        <div class="scan-error">
+            <div class="error-icon">❌</div>
+            <h3>Erreur du scanner</h3>
+            <p>Utilisez la sélection directe</p>
+            <button onclick="showSection('selectEmployeSection')" class="btn-primary">
+                👤 Pointer directement
+            </button>
+        </div>
+    `;
+}
+
 function stopQRScanner() {
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            console.log('✅ Scanner QR arrêté');
-            html5QrCode.clear();
-            html5QrCode = null;
-            currentCameraId = null;
+    if (qrScanner && isScanning) {
+        qrScanner.stop().then(() => {
+            qrScanner.clear();
+            qrScanner = null;
+            isScanning = false;
         }).catch(err => {
             console.error('Erreur arrêt scanner:', err);
         });
     }
+}
+
+function showNotification(message, type = 'info') {
+    alert(message); // Version simplifiée
 }
