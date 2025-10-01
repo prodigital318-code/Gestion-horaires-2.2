@@ -61,6 +61,59 @@ function showQRCodeError() {
     }
 }
 
+// Téléchargement amélioré du QR code
+function downloadQRCode() {
+    const canvas = document.getElementById('qrCodeCanvas');
+    if (!canvas) {
+        alert("❌ QR code non trouvé");
+        return;
+    }
+
+    // Si le canvas est vide, on régénère le QR code
+    if (canvas.width === 0 || canvas.height === 0) {
+        if (typeof generateUniqueQRCode === 'function') {
+            generateUniqueQRCode();
+            // Petite attente pour laisser le temps au QR de se dessiner
+            setTimeout(downloadQRCode, 500);
+            return;
+        } else {
+            alert("❌ QR code non prêt");
+            return;
+        }
+    }
+
+    try {
+        // DataURL PNG directement depuis le canvas
+        const dataURL = canvas.toDataURL("image/png");
+
+        // Nom de fichier lisible
+        const stamp = new Date().toISOString().split('T')[0];
+        const filename = `QR-pointage-ProDigital-${stamp}.png`;
+
+        // Déclenche le téléchargement
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = filename;
+
+        // iOS Safari ne respecte pas toujours download → fallback
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+            window.open(dataURL, '_blank'); // L'utilisateur peut "Enregistrer l'image"
+            alert("📱 Sur iOS: Appuyez longtemps sur l'image et choisissez 'Enregistrer l'image'");
+        } else {
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        console.log('✅ QR code téléchargé:', filename);
+        
+    } catch (error) {
+        console.error('❌ Erreur téléchargement QR:', error);
+        alert('❌ Erreur lors du téléchargement du QR code');
+    }
+}
+
 // Scanner QR Code
 async function initializeQRScannerForEmploye() {
     const statusDiv = document.getElementById('qrScanStatus');
@@ -185,5 +238,5 @@ function stopQRScanner() {
 }
 
 function showNotification(message, type = 'info') {
-    alert(message); // Version simplifiée
+    alert(message);
 }
