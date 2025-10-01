@@ -27,7 +27,10 @@ function showAdminTab(tabName) {
             break;
         case 'qr':
             contentDiv.innerHTML = renderQRManagement();
-            generateQRCode();
+            // Générer le QR code unique automatiquement
+            setTimeout(() => {
+                generateUniqueQRCode();
+            }, 100);
             break;
     }
 }
@@ -35,29 +38,49 @@ function showAdminTab(tabName) {
 function renderDashboard() {
     return `
         <div class="dashboard">
-            <h2>📊 Tableau de Bord</h2>
+            <div class="dashboard-header">
+                <h2>📊 Tableau de Bord</h2>
+                <p>Vue d'ensemble de votre activité</p>
+            </div>
+            
             <div class="stats-grid">
                 <div class="stat-card">
-                    <h3>👥 Employés</h3>
-                    <p id="totalEmployes">-</p>
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-content">
+                        <h3>Employés</h3>
+                        <p id="totalEmployes">-</p>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <h3>⏱️ Pointages Aujourd'hui</h3>
-                    <p id="todayPointages">-</p>
+                    <div class="stat-icon">⏱️</div>
+                    <div class="stat-content">
+                        <h3>Pointages Aujourd'hui</h3>
+                        <p id="todayPointages">-</p>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <h3>⚠️ Retards</h3>
-                    <p id="todayRetards">-</p>
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-content">
+                        <h3>Retards</h3>
+                        <p id="todayRetards">-</p>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <h3>📸 Selfies</h3>
-                    <p id="totalSelfies">-</p>
+                    <div class="stat-icon">📸</div>
+                    <div class="stat-content">
+                        <h3>Selfies</h3>
+                        <p id="totalSelfies">-</p>
+                    </div>
                 </div>
             </div>
             
-            <div class="recent-activity">
+            <div class="recent-activity-section">
                 <h3>Activité Récente</h3>
-                <div id="recentActivity"></div>
+                <div id="recentActivity" class="activity-list">
+                    <div class="activity-placeholder">
+                        <p>Chargement des activités...</p>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -76,17 +99,21 @@ async function loadDashboardStats() {
         document.getElementById('todayRetards').textContent = retards;
         document.getElementById('totalSelfies').textContent = selfies.length;
         
-        const recentActivity = pointages.slice(-5).reverse();
+        const recentActivity = pointages.slice(-8).reverse();
         const activityHTML = recentActivity.map(p => {
             return `
-                <div class="activity-item" style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>${p.userName}</strong> - ${p.heure} (${p.type})
+                <div class="activity-item">
+                    <div class="activity-icon">${p.type === 'arrivée' ? '🟢' : '🔴'}</div>
+                    <div class="activity-info">
+                        <strong>${p.userName}</strong>
+                        <span>${p.heure} - ${p.type}</span>
                     </div>
-                    ${p.retard ? '<span style="color: red; font-weight: bold;">⚠️ Retard</span>' : '<span style="color: green;">✅ À l\'heure</span>'}
+                    <div class="activity-status">
+                        ${p.retard ? '<span class="retard-badge">⚠️ Retard</span>' : '<span class="on-time">✅ À l\'heure</span>'}
+                    </div>
                 </div>
             `;
-        }).join('') || '<p style="text-align: center; color: #666; padding: 20px;">Aucune activité aujourd\'hui</p>';
+        }).join('') || '<div class="activity-placeholder"><p>Aucune activité aujourd\'hui</p></div>';
         
         document.getElementById('recentActivity').innerHTML = activityHTML;
     } catch (error) {
@@ -97,21 +124,31 @@ async function loadDashboardStats() {
 function renderEmployesManagement() {
     return `
         <div class="employes-management">
-            <h2>👥 Gestion des Employés</h2>
+            <div class="section-header">
+                <h2>👥 Gestion des Employés</h2>
+                <p>Créez et gérez vos équipes</p>
+            </div>
             
-            <button onclick="showAddEmployeForm()" class="btn-primary">➕ Ajouter un Employé</button>
+            <div class="action-bar">
+                <button onclick="showAddEmployeForm()" class="btn-primary">
+                    ➕ Ajouter un Employé
+                </button>
+            </div>
             
-            <div id="addEmployeForm" style="display: none; margin-top: 20px; padding: 25px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #3498db;">
-                <h3 style="margin-bottom: 20px; color: #2c3e50;">Nouvel Employé</h3>
+            <div id="addEmployeForm" class="form-modal" style="display: none;">
+                <div class="modal-header">
+                    <h3>Nouvel Employé</h3>
+                    <button onclick="hideAddEmployeForm()" class="btn-close">×</button>
+                </div>
                 <div class="form-group">
-                    <input type="text" id="employeName" placeholder="Nom complet" style="margin-bottom: 15px;">
-                    <input type="email" id="employeEmail" placeholder="Email" style="margin-bottom: 15px;">
-                    <input type="password" id="employePassword" placeholder="Mot de passe" style="margin-bottom: 15px;">
+                    <input type="text" id="employeName" placeholder="Nom complet" required>
+                    <input type="email" id="employeEmail" placeholder="Email" required>
+                    <input type="password" id="employePassword" placeholder="Mot de passe (min 4 caractères)" required>
                 </div>
                 
-                <div style="margin: 20px 0;">
-                    <h4 style="margin-bottom: 10px; color: #2c3e50;">🕐 Shift Horaires</h4>
-                    <select id="employeShift" style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #ddd;">
+                <div class="shift-selection">
+                    <h4>🕐 Shift Horaires</h4>
+                    <select id="employeShift">
                         <option value="9h-17h">9h00 - 17h00</option>
                         <option value="8h-16h">8h00 - 16h00</option>
                         <option value="10h-18h">10h00 - 18h00</option>
@@ -119,15 +156,19 @@ function renderEmployesManagement() {
                     </select>
                 </div>
                 
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="addEmploye()" class="btn-primary" style="flex: 1;">Créer Employé</button>
-                    <button onclick="hideAddEmployeForm()" class="btn-secondary" style="flex: 1;">Annuler</button>
+                <div class="form-actions">
+                    <button onclick="addEmploye()" class="btn-primary">Créer Employé</button>
+                    <button onclick="hideAddEmployeForm()" class="btn-secondary">Annuler</button>
                 </div>
             </div>
             
-            <div class="employes-list" style="margin-top: 30px;">
-                <h3 style="margin-bottom: 20px; color: #2c3e50;">Liste des Employés</h3>
-                <div id="employesListContainer"></div>
+            <div class="employes-list-section">
+                <h3>Liste des Employés</h3>
+                <div id="employesListContainer" class="employes-grid">
+                    <div class="loading-state">
+                        <p>Chargement des employés...</p>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -139,21 +180,35 @@ async function loadEmployesList() {
         const container = document.getElementById('employesListContainer');
         
         if (employes.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Aucun employé enregistré</p>';
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">👥</div>
+                    <h4>Aucun employé</h4>
+                    <p>Commencez par ajouter votre premier employé</p>
+                    <button onclick="showAddEmployeForm()" class="btn-primary">➕ Ajouter un employé</button>
+                </div>
+            `;
             return;
         }
         
         container.innerHTML = employes.map(employe => `
             <div class="employe-card">
+                <div class="employe-avatar">
+                    ${employe.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                </div>
                 <div class="employe-info">
-                    <strong>${employe.name}</strong>
-                    <span style="color: #666;">📧 ${employe.email}</span>
-                    <span style="color: #666;">🕐 Shift: ${employe.shift}</span>
-                    <small style="color: #999;">Créé le: ${new Date(employe.createdAt).toLocaleDateString('fr-FR')}</small>
+                    <h4>${employe.name}</h4>
+                    <p class="employe-email">📧 ${employe.email}</p>
+                    <p class="employe-shift">🕐 ${employe.shift}</p>
+                    <p class="employe-date">Créé le ${new Date(employe.createdAt).toLocaleDateString('fr-FR')}</p>
                 </div>
                 <div class="employe-actions">
-                    <button onclick="viewEmployeStats(${employe.id})" class="btn-info">📊 Stats</button>
-                    <button onclick="deleteEmploye(${employe.id})" class="btn-danger">🗑️ Supprimer</button>
+                    <button onclick="viewEmployeStats(${employe.id})" class="btn-info" title="Voir les statistiques">
+                        📊
+                    </button>
+                    <button onclick="deleteEmploye(${employe.id})" class="btn-danger" title="Supprimer">
+                        🗑️
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -203,9 +258,9 @@ async function addEmploye() {
         alert('✅ Employé créé avec succès !');
         hideAddEmployeForm();
         loadEmployesList();
-        loadDashboardStats(); // Mettre à jour les stats
+        loadDashboardStats();
     } catch (error) {
-        alert('❌ Erreur lors de la création de l\'employé: ' + error.message);
+        alert('❌ Erreur lors de la création: ' + error.message);
     }
 }
 
@@ -216,13 +271,15 @@ async function viewEmployeStats(employeId) {
     
     const pointagesAujourdhui = pointages.filter(p => p.date === today);
     const retardsMois = pointages.filter(p => p.retard && p.date.startsWith(new Date().toISOString().substring(0, 7))).length;
+    const totalPointages = pointages.length;
     
     alert(`📊 Statistiques de ${employe.name}:
 
 📅 Pointages aujourd'hui: ${pointagesAujourdhui.length}
 ⚠️ Retards ce mois: ${retardsMois}
-📋 Total pointages: ${pointages.length}
-🕐 Dernier shift: ${employe.shift}
+📋 Total pointages: ${totalPointages}
+🕐 Shift: ${employe.shift}
+📧 Email: ${employe.email}
     `);
 }
 
@@ -233,7 +290,7 @@ async function deleteEmploye(employeId) {
         await deleteItem('users', employeId);
         alert('✅ Employé supprimé avec succès');
         loadEmployesList();
-        loadDashboardStats(); // Mettre à jour les stats
+        loadDashboardStats();
     } catch (error) {
         alert('❌ Erreur lors de la suppression');
     }
@@ -242,19 +299,30 @@ async function deleteEmploye(employeId) {
 function renderPointagesManagement() {
     const today = new Date().toISOString().split('T')[0];
     return `
-        <div class="employes-management">
-            <h2>⏱️ Gestion des Pointages</h2>
-            
-            <div style="margin-bottom: 25px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <label for="pointageDate" style="font-weight: 600; color: #2c3e50;">Date:</label>
-                <input type="date" id="pointageDate" value="${today}" style="padding: 10px; border: 2px solid #ddd; border-radius: 8px;">
-                <button onclick="loadPointagesByDate()" class="btn-primary">🔍 Filtrer</button>
-                <button onclick="exportPointages()" class="btn-info">📤 Exporter</button>
+        <div class="pointages-management">
+            <div class="section-header">
+                <h2>⏱️ Gestion des Pointages</h2>
+                <p>Suivez les présences et retards</p>
             </div>
             
-            <div id="pointagesSummary" style="margin-bottom: 20px;"></div>
+            <div class="filters-bar">
+                <div class="date-filter">
+                    <label for="pointageDate">📅 Date:</label>
+                    <input type="date" id="pointageDate" value="${today}">
+                    <button onclick="loadPointagesByDate()" class="btn-primary">🔍 Filtrer</button>
+                </div>
+                <div class="export-section">
+                    <button onclick="exportPointages()" class="btn-secondary">📤 Exporter les données</button>
+                </div>
+            </div>
             
-            <div id="pointagesList"></div>
+            <div id="pointagesSummary" class="summary-cards"></div>
+            
+            <div id="pointagesList" class="pointages-list">
+                <div class="loading-state">
+                    <p>Chargement des pointages...</p>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -272,34 +340,57 @@ async function loadPointagesByDate() {
         
         const totalPointages = pointages.length;
         const retards = pointages.filter(p => p.retard).length;
+        const aLHeure = totalPointages - retards;
         
         summary.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #2c3e50;">${totalPointages}</div>
-                    <div style="color: #666; font-size: 0.9rem;">Total pointages</div>
+            <div class="summary-grid">
+                <div class="summary-card total">
+                    <div class="summary-number">${totalPointages}</div>
+                    <div class="summary-label">Total Pointages</div>
                 </div>
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 1.5rem; font-weight: bold; color: ${retards > 0 ? '#e74c3c' : '#27ae60'};">${retards}</div>
-                    <div style="color: #666; font-size: 0.9rem;">Retards</div>
+                <div class="summary-card on-time">
+                    <div class="summary-number">${aLHeure}</div>
+                    <div class="summary-label">À l'heure</div>
+                </div>
+                <div class="summary-card late">
+                    <div class="summary-number">${retards}</div>
+                    <div class="summary-label">Retards</div>
                 </div>
             </div>
         `;
         
         if (pointages.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Aucun pointage pour cette date</p>';
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⏱️</div>
+                    <h4>Aucun pointage</h4>
+                    <p>Aucun pointage enregistré pour cette date</p>
+                </div>
+            `;
             return;
         }
         
         container.innerHTML = pointages.map(pointage => `
-            <div class="employe-card" style="border-left: 4px solid ${pointage.retard ? '#e74c3c' : '#27ae60'};">
-                <div class="employe-info">
-                    <strong>${pointage.userName}</strong>
-                    <span style="color: #666;">🕐 ${pointage.heure} - ${pointage.type === 'arrivée' ? '🟢 Arrivée' : '🔴 Départ'}</span>
-                    <span style="color: #666;">📅 ${pointage.date}</span>
+            <div class="pointage-card ${pointage.retard ? 'retard' : 'on-time'}">
+                <div class="pointage-avatar">
+                    ${pointage.userName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                </div>
+                <div class="pointage-info">
+                    <h4>${pointage.userName}</h4>
+                    <div class="pointage-details">
+                        <span class="time">🕐 ${pointage.heure}</span>
+                        <span class="type">${pointage.type === 'arrivée' ? '🟢 Arrivée' : '🔴 Départ'}</span>
+                        <span class="date">📅 ${pointage.date}</span>
+                    </div>
+                </div>
+                <div class="pointage-status">
                     ${pointage.retard ? 
-                        `<span style="color: #e74c3c; font-weight: bold;">⚠️ Retard de ${pointage.retardMinutes} minutes</span>` : 
-                        '<span style="color: #27ae60;">✅ À l\'heure</span>'
+                        `<div class="status-badge retard">
+                            ⚠️ Retard de ${pointage.retardMinutes} min
+                        </div>` : 
+                        `<div class="status-badge on-time">
+                            ✅ À l'heure
+                        </div>`
                     }
                 </div>
             </div>
@@ -315,33 +406,68 @@ function exportPointages() {
 
 function renderQRManagement() {
     return `
-        <div class="employes-management">
-            <h2>📱 Gestion des QR Codes</h2>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <canvas id="qrCodeCanvas" width="256" height="256" style="border: 2px solid #ddd; padding: 20px; background: white; border-radius: 10px;"></canvas>
+        <div class="qr-management">
+            <div class="qr-header">
+                <h2>📱 QR Code de Pointage</h2>
+                <p class="qr-subtitle">QR code permanent - À utiliser par tous les employés</p>
             </div>
             
-            <div style="text-align: center; margin-bottom: 30px;">
-                <button onclick="generateQRCode()" class="btn-primary" style="margin: 5px;">🔄 Générer QR Code</button>
-                <button onclick="downloadQRCode()" class="btn-success" style="margin: 5px;">📥 Télécharger</button>
-                <button onclick="printQRCode()" class="btn-secondary" style="margin: 5px;">🖨️ Imprimer</button>
-            </div>
-            
-            <div style="padding: 25px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #3498db;">
-                <h3 style="margin-bottom: 15px; color: #2c3e50;">📋 Instructions d'utilisation:</h3>
-                <div style="display: grid; gap: 10px;">
-                    <p>1. <strong>Générer le QR code</strong> - Cliquez sur "Générer QR Code"</p>
-                    <p>2. <strong>Télécharger/Imprimer</strong> - Téléchargez ou imprimez le QR code</p>
-                    <p>3. <strong>Placer à l'entrée</strong> - Affichez le QR code à l'entrée de votre établissement</p>
-                    <p>4. <strong>Utilisation employés</strong> - Les employés scannent avec leur appareil photo</p>
-                    <p>5. <strong>Selfie automatique</strong> - Le système capture automatiquement un selfie</p>
+            <div class="qr-display-section">
+                <div class="qr-container">
+                    <canvas id="qrCodeCanvas" width="300" height="300"></canvas>
+                </div>
+                
+                <div class="qr-actions">
+                    <button onclick="downloadQRCode()" class="btn-primary">
+                        📥 Télécharger QR Code
+                    </button>
+                    <button onclick="printQRCode()" class="btn-secondary">
+                        🖨️ Imprimer
+                    </button>
                 </div>
             </div>
-            
-            <div style="margin-top: 25px; padding: 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-                <h4 style="color: #856404; margin-bottom: 10px;">💡 Conseil</h4>
-                <p style="color: #856404; margin: 0;">Imprimez le QR code en format A4 pour une meilleure lisibilité. Placez-le dans un endroit bien éclairé.</p>
+
+            <div class="qr-instructions">
+                <h3>📋 Comment utiliser le QR code</h3>
+                <div class="instruction-steps">
+                    <div class="step">
+                        <span class="step-number">1</span>
+                        <div class="step-content">
+                            <strong>Téléchargez ou imprimez ce QR code</strong>
+                            <p>Ce QR code est permanent et unique à votre entreprise</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <span class="step-number">2</span>
+                        <div class="step-content">
+                            <strong>Placez-le à l'entrée</strong>
+                            <p>Affichage visible et bien éclairé pour un scan facile</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <span class="step-number">3</span>
+                        <div class="step-content">
+                            <strong>Les employés scannent</strong>
+                            <p>Ils pointent simplement leur caméra vers le QR code</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <span class="step-number">4</span>
+                        <div class="step-content">
+                            <strong>Selfie automatique</strong>
+                            <p>Le système capture automatiquement un selfie de vérification</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="qr-info-card">
+                <div class="info-icon">💡</div>
+                <div class="info-content">
+                    <h4>Information importante</h4>
+                    <p>Ce QR code fonctionne <strong>indéfiniment</strong>. Vous n'avez pas besoin de le régénérer.</p>
+                    <p>Il est compatible avec <strong>tous les navigateurs</strong> et <strong>tous les appareils</strong>.</p>
+                </div>
             </div>
         </div>
     `;
@@ -350,7 +476,7 @@ function renderQRManagement() {
 function printQRCode() {
     const canvas = document.getElementById('qrCodeCanvas');
     if (!canvas) {
-        alert('❌ Veuillez d\'abord générer un QR code');
+        alert('❌ QR code non disponible');
         return;
     }
 
@@ -360,26 +486,48 @@ function printQRCode() {
             <head>
                 <title>QR Code ProDigital</title>
                 <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 40px; }
-                    .header { margin-bottom: 30px; }
-                    .instructions { margin-top: 30px; text-align: left; max-width: 500px; margin: 30px auto; }
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        text-align: center; 
+                        padding: 40px;
+                        margin: 0;
+                    }
+                    .header { 
+                        margin-bottom: 30px; 
+                    }
+                    .instructions { 
+                        margin-top: 30px; 
+                        text-align: left; 
+                        max-width: 500px; 
+                        margin: 30px auto;
+                        font-size: 14px;
+                    }
+                    img { 
+                        max-width: 300px; 
+                        height: auto;
+                    }
+                    @media print {
+                        body { padding: 20px; }
+                    }
                 </style>
             </head>
             <body>
                 <div class="header">
                     <h1>🏢 ProDigital</h1>
-                    <h2>QR Code de Pointage</h2>
-                    <p>Généré le: ${new Date().toLocaleString('fr-FR')}</p>
+                    <h2>QR Code de Pointage Permanent</h2>
+                    <p><strong>Entreprise:</strong> Votre Société</p>
+                    <p><strong>Généré le:</strong> ${new Date().toLocaleDateString('fr-FR')}</p>
                 </div>
-                <img src="${canvas.toDataURL('image/png')}" alt="QR Code" style="max-width: 300px;">
+                <img src="${canvas.toDataURL('image/png')}" alt="QR Code ProDigital">
                 <div class="instructions">
-                    <h3>Instructions d'utilisation:</h3>
+                    <h3>Instructions:</h3>
                     <ol>
-                        <li>Imprimez ce QR code en format A4</li>
-                        <li>Placez-le à l'entrée de votre établissement</li>
+                        <li>Placez ce QR code à l'entrée de l'établissement</li>
                         <li>Les employés le scanneront avec leur appareil photo</li>
-                        <li>Un selfie automatique sera capturé pour vérification</li>
+                        <li>Le système capturera automatiquement un selfie</li>
+                        <li>Le pointage sera enregistré avec horodatage</li>
                     </ol>
+                    <p><em>Ce QR code est permanent et ne nécessite pas de régénération.</em></p>
                 </div>
             </body>
         </html>
