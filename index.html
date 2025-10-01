@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProDigital - Gestion des Horaires</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- Librairie QR Scanner universelle -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+</head>
+<body>
+    <!-- Section Login -->
+    <section id="loginSection" class="section active">
+        <div class="login-container">
+            <div class="logo">
+                <h1>🏢 ProDigital</h1>
+                <p class="tagline">Gestion Professionnelle des Horaires</p>
+            </div>
+            
+            <div class="demo-account">
+                <div class="demo-info">
+                    <h3>🔐 Compte Administrateur</h3>
+                    <p><strong>Email:</strong> prodigital318@gmail.com</p>
+                    <p><strong>Mot de passe:</strong> 12345678</p>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <input type="email" id="loginEmail" placeholder="Adresse email" value="prodigital318@gmail.com" required>
+                <input type="password" id="loginPassword" placeholder="Mot de passe" value="12345678" required>
+            </div>
+            
+            <button onclick="login()" class="btn-primary">Se connecter</button>
+
+            <div class="quick-access">
+                <p><strong>Accès rapide employé:</strong></p>
+                <button onclick="directToEmployePointage()" class="btn-info">📱 Pointer directement</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Admin -->
+    <section id="adminSection" class="section">
+        <header class="admin-header">
+            <div class="header-left">
+                <h1>🏢 Administration ProDigital</h1>
+                <span class="user-welcome">Connecté en tant que <span id="adminUserName"></span></span>
+            </div>
+            <div class="header-actions">
+                <button onclick="logout()" class="btn-logout">🚪 Déconnexion</button>
+            </div>
+        </header>
+
+        <nav class="admin-nav">
+            <button class="nav-btn active" onclick="showAdminTab('dashboard')">📊 Tableau de Bord</button>
+            <button class="nav-btn" onclick="showAdminTab('employes')">👥 Employés</button>
+            <button class="nav-btn" onclick="showAdminTab('pointages')">⏱️ Pointages</button>
+            <button class="nav-btn" onclick="showAdminTab('qr')">📱 QR Codes</button>
+        </nav>
+
+        <main class="admin-content">
+            <div id="adminContent"></div>
+        </main>
+    </section>
+
+    <!-- Section Employé -->
+    <section id="employeSection" class="section">
+        <header class="employe-header">
+            <h1>👤 Espace Employé</h1>
+            <div class="user-info">
+                <span id="employeUserName"></span>
+                <button onclick="logout()" class="btn-logout">🚪 Déconnexion</button>
+            </div>
+        </header>
+
+        <div class="employe-content">
+            <div id="employeContent"></div>
+        </div>
+    </section>
+
+    <!-- Section Scan QR Code Universel -->
+    <section id="qrScanSection" class="section">
+        <div class="qr-scan-container">
+            <header class="scan-header">
+                <button onclick="stopQRScanner(); showSection('employeSection')" class="btn-back">← Retour</button>
+                <h1>📱 Scanner QR Code</h1>
+            </header>
+            
+            <div class="scan-area">
+                <div id="qrReader" class="qr-reader"></div>
+                <div class="scan-overlay">
+                    <div class="scan-frame"></div>
+                    <div class="scan-text">Positionnez le QR code dans le cadre</div>
+                </div>
+            </div>
+            
+            <div class="scan-options">
+                <button onclick="switchCamera()" class="btn-secondary">🔄 Changer de caméra</button>
+                <button onclick="showSection('employeSection')" class="btn-secondary">❌ Annuler</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Camera Selfie -->
+    <section id="cameraSection" class="section">
+        <div class="camera-container">
+            <video id="cameraVideo" autoplay playsinline></video>
+            <div class="camera-controls">
+                <p>📸 Selfie automatique dans <span id="countdown">3</span> secondes...</p>
+                <p class="camera-instruction">Positionnez votre visage dans le cadre</p>
+                <button onclick="stopCamera()" class="btn-danger">❌ Annuler</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section Sélection Employé -->
+    <section id="selectEmployeSection" class="section">
+        <div class="select-employe-container">
+            <h1>👤 Identification</h1>
+            <div class="form-group">
+                <label>Sélectionnez votre nom:</label>
+                <select id="employeSelect">
+                    <option value="">Choisissez votre nom</option>
+                </select>
+            </div>
+            
+            <button onclick="startPointageWithSelectedEmploye()" class="btn-primary">✅ Confirmer et pointer</button>
+            <button onclick="showLogin()" class="btn-secondary">Retour</button>
+        </div>
+    </section>
+
+    <script src="db.js"></script>
+    <script src="camera.js"></script>
+    <script src="qr.js"></script>
+    <script src="admin.js"></script>
+    <script src="employe.js"></script>
+    
+    <script>
+        let currentUser = null;
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+        }
+
+        function showLogin() { 
+            showSection('loginSection'); 
+            document.getElementById('loginEmail').value = 'prodigital318@gmail.com';
+            document.getElementById('loginPassword').value = '12345678';
+        }
+
+        function directToEmployePointage() {
+            showSection('selectEmployeSection');
+            loadEmployesForSelection();
+        }
+
+        async function loadEmployesForSelection() {
+            const select = document.getElementById('employeSelect');
+            const employes = await getEmployees();
+            
+            select.innerHTML = '<option value="">Choisissez votre nom</option>';
+            employes.forEach(employe => {
+                const option = document.createElement('option');
+                option.value = employe.id;
+                option.textContent = employe.name;
+                select.appendChild(option);
+            });
+        }
+
+        async function startPointageWithSelectedEmploye() {
+            const select = document.getElementById('employeSelect');
+            const employeId = select.value;
+            
+            if (!employeId) {
+                alert('❌ Veuillez sélectionner votre nom');
+                return;
+            }
+            
+            const employe = await getUserById(employeId);
+            currentUser = employe;
+            showSection('cameraSection');
+            startCameraForPointage();
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                alert('❌ Veuillez remplir tous les champs');
+                return;
+            }
+
+            try {
+                const user = await authenticateUser(email, password);
+                
+                if (user) {
+                    currentUser = user;
+                    
+                    if (user.role === 'admin') {
+                        showSection('adminSection');
+                        initAdminInterface();
+                    } else {
+                        showSection('employeSection');
+                        initEmployeInterface();
+                    }
+                    
+                } else {
+                    alert('❌ Email ou mot de passe incorrect');
+                }
+            } catch (error) {
+                alert('❌ Erreur lors de la connexion');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            showLogin();
+        }
+
+        async function initApp() {
+            await initDB();
+            showLogin();
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+  </html>
